@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument('image_path')
 parser.add_argument('checkpoint_path')
-parser.add_argument('--top_k', type=int, default=5)
+parser.add_argument('--top_k', type=int, default=1)
 parser.add_argument('--category_names')
 parser.add_argument('--gpu', action='store_true')
 
@@ -116,11 +116,12 @@ def predict(image_path, model, topk):
     topk_probabilities, topk_indices = torch.topk(probabilities, k=topk)
 
     # Convert back
-    topk_probabilities = topk_probabilities.squeeze().tolist()
-    topk_indices = topk_indices.squeeze().tolist()
+    topk_probabilities = topk_probabilities.squeeze()
+    topk_probabilities = [topk_probabilities.item()] if topk_probabilities.numel() == 1 else topk_probabilities.tolist()
+    topk_indices = topk_indices.squeeze()
+    topk_indices = [topk_indices.item()] if topk_indices.numel() == 1 else topk_indices.tolist()
     
     label_map = {v: k for k, v in model.class_to_idx.items()}
-
     return topk_probabilities, [label_map[idx] for idx in topk_indices]
 
 # Load category names
@@ -135,11 +136,13 @@ topk_probabilities, topk_indices = predict(image_path, model, top_k)
 topk_labels = [cat_to_name[idx] for idx in topk_indices]
 max_label_len = max([len(label) for label in topk_labels])
 
-print(f"Top {top_k} predictions for {image_path}:")
-for i in range(top_k):
-    num_blocks = round(topk_probabilities[i] * 50)
-    print(
-        f"{topk_labels[i].rjust(max_label_len)}: "
-        f"{'█' * num_blocks if num_blocks > 0 else '░'} "
-        f"{topk_probabilities[i] * 100:.2f}%"
-    )
+print(f"The image {image_path} is most likely a {topk_labels[0]} with a probability of {topk_probabilities[0] * 100:.2f}%")
+if top_k > 1:
+    print(f"Top {top_k} predictions for {image_path}:")
+    for i in range(top_k):
+        num_blocks = round(topk_probabilities[i] * 50)
+        print(
+            f"{topk_labels[i].rjust(max_label_len)}: "
+            f"{'█' * num_blocks if num_blocks > 0 else '░'} "
+            f"{topk_probabilities[i] * 100:.2f}%"
+        )
